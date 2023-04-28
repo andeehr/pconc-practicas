@@ -265,7 +265,7 @@ Persona(1, "Zaira");
 // persona se quede esperando indefinidamente.
 //b)
 // hydra
-global int capacidad = 5;
+global int capacidad = 50;
 global int personas = 0;
 global Semaphore[] puedeIngresar = new Semaphore[2];
 global Semaphore[] permisoChequear = new Semaphore[2];
@@ -311,6 +311,15 @@ public void Persona (int genero, String nombre) {
 // mismo tiempo que la carga a clientes y que los camiones tienen prioridad por sobre los
 // veh´ıculos. ¿Es su soluci´on libre de inanici´on?
 
+global Semaphore mutexP = new Semaphore(1);
+global Semaphore permisoV = new Semaphore(1);
+global Semaphore permisoC = new Semaphore(1);
+global Semaphore mutexV = new Semaphore(1);
+global Semaphore mutexC = new Semaphore(1);
+global Semaphore permisoCombustible = new Semaphore(6);
+global int vehiculos = 0;
+global int camiones = 0;
+
 public void Vehiculo (String marca) {
   thread {
 
@@ -324,7 +333,10 @@ public void Vehiculo (String marca) {
     mutexV.release();
     permisoV.release();
     mutexP.release();
+    permisoCombustible.acquire();
     // cargar combustible
+    print(marca + " esta cargando combustible");
+    permisoCombustible.release();
     mutexV.acquire();
     vehiculos--;
     if (vehiculos == 0) {
@@ -347,6 +359,7 @@ public void Camion (String marca) {
 
     permisoC.acquire();
     //abastecer
+    print(marca + " esta abasteciendo");
     permisoC.release();
 
     mutexC.acquire();
@@ -358,3 +371,247 @@ public void Camion (String marca) {
 
   }
 }
+
+//para visualizar en hydra
+global Semaphore mutexP = new Semaphore(1);
+global Semaphore permisoV = new Semaphore(1);
+global Semaphore permisoC = new Semaphore(1);
+global Semaphore mutexV = new Semaphore(1);
+global Semaphore mutexC = new Semaphore(1);
+global Semaphore mutexVC = new Semaphore(1);
+global Semaphore permisoCombustible = new Semaphore(6);
+global int vehiculos = 0;
+global int camiones = 0;
+global int vehiculosCargando = 0;
+
+public void Vehiculo (String marca) {
+  thread {
+
+    mutexP.acquire();
+    permisoV.acquire();
+    mutexV.acquire();
+    vehiculos++;
+    if (vehiculos == 1) {
+      permisoC.acquire();
+    }
+    mutexV.release();
+    permisoV.release();
+    mutexP.release();
+    permisoCombustible.acquire();
+    mutexVC.acquire();
+    vehiculosCargando++;
+    mutexVC.release();
+    print(vehiculosCargando);
+    // cargar combustible
+    print(marca + " esta cargando combustible");
+    permisoCombustible.release();
+    mutexVC.acquire();
+    vehiculosCargando--;
+    mutexVC.release();
+    mutexV.acquire();
+    vehiculos--;
+    if (vehiculos == 0) {
+      permisoC.release();
+    }
+    mutexV.release();
+
+  }
+}
+
+public void Camion (String marca) {
+  thread {
+
+    mutexC.acquire();
+    camiones++;
+    if (camiones == 1) {
+      permisoV.acquire();
+    }
+    mutexC.release();
+
+    permisoC.acquire();
+    //abastecer
+    print(marca + " esta abasteciendo");
+    permisoC.release();
+
+    mutexC.acquire();
+    camiones--;
+    if (camiones == 0) {
+      permisoV.release();
+    }
+    mutexC.release();
+
+  }
+}
+
+Vehiculo("Aldo");
+Vehiculo("Beto");
+Vehiculo("Carla");
+Vehiculo("Daniela");
+Vehiculo("Eugenia");
+Vehiculo("Franco");
+Vehiculo("Gabriela");
+Vehiculo("Horacio");
+Vehiculo("Ines");
+Vehiculo("Jemina");
+Vehiculo("Karina");
+Vehiculo("Lien");
+Vehiculo("Marta");
+Vehiculo("Nora");
+Vehiculo("Omar");
+Vehiculo("Qori");
+Vehiculo("Roberta");
+Vehiculo("Santiago");
+Vehiculo("Teresa");
+Vehiculo("Ulises");
+Vehiculo("Victoria");
+Vehiculo("Walter");
+Vehiculo("Ximena");
+Vehiculo("Yvonne");
+Vehiculo("Zaira");
+
+Camion("Aldo");
+Camion("Beto");
+Camion("Carla");
+Camion("Daniela");
+Camion("Eugenia");
+Camion("Franco");
+Camion("Gabriela");
+Camion("Horacio");
+Camion("Ines");
+Camion("Jemina");
+Camion("Karina");
+Camion("Lien");
+Camion("Marta");
+Camion("Nora");
+Camion("Omar");
+Camion("Qori");
+Camion("Roberta");
+Camion("Santiago");
+Camion("Teresa");
+Camion("Ulises");
+Camion("Victoria");
+Camion("Walter");
+Camion("Ximena");
+Camion("Yvonne");
+Camion("Zaira");
+
+// Ejercicio 5. En una oficina hay un ba˜no unisex con 8 toiletes. A lo largo del d´ıa, distintas
+// personas entran a utilizarlo. Si sucede que en ese momento todos los toiletes est´an ocupados,
+// las personas esperan hasta que alguno se libere. Por otra parte, peri´odicamente el personal de
+// limpieza debe pasar a mantener las instalaciones en condiciones. La limpieza del ba˜no no se
+// puede hacer mientras haya gente dentro del mismo, por lo que si en ese momento hay personas
+// utilizando alg´un toilete o esperando que se libere alguno, el personal de limpieza debe esperar a
+// que el ba˜no se vac´ıe completamente. En contraparte, si hay un empleado de limpieza trabajando
+// en el ba˜no, las personas que quieran utilizarlo deber´an esperar a que termine.
+// a) Modele esta situaci´on utilizando sem´aforos como mecanismo de sincronizaci´on (puede modelar al personal de limpieza como un ´unico thread).
+// b) Modifique la soluci´on anterior para contemplar el caso donde el personal de limpieza tiene
+// prioridad. Es decir, si hay un empleado de limpieza esperando para hacer el mantenimiento,
+// las siguientes personas que lleguen deben esperar a que logre terminar la limpieza.
+
+// Ejercicio 6. Se desea modelar el control de tr´ansito de un puente que conecta dos ciudades.
+// Dado que el puente es muy estrecho se debe evitar que dos autos circulen al mismo tiempo en
+// direcci´on opuesta, dado que quedar´ıan atascados.
+// Resuelva los siguientes problemas usando sem´aforos, modelando cada coche como un thread
+// independiente que desea atravesar el puente en alguna de las dos direcciones posibles. Tenga
+// en cuenta que atravesar el puente no es una acci´on at´omica, y por lo tanto, requiere de cierto
+// tiempo.
+
+// a) De una soluci´on que permita que varios coches que se desplazan en la misma direcci´on
+// puedan circular simult´aneamente.
+// b) Modifique la soluci´on anterior para que como m´aximo 3 coches puedan circular por el
+// puente al mismo tiempo.
+// c) Indique si la soluci´on propuesta en el punto b es libre de inanici´on. Justifique su respuesta.
+
+//a
+global int autosCirculando = 0;
+global Semaphore[] permisoCircular = new Semaphore[2];
+permisoCircular[0] = new Semaphore(1);
+permisoCircular[1] = new Semaphore(1);
+global Semaphore mutexSuma = new Semaphore(1);
+
+public void Vehiculo (int direccion, String conductor) {
+  //0: Norte, 1: Sur
+  int opuesta = (direccion + 1) % 2;
+  thread {
+    permisoCircular[direccion].acquire();
+    mutexSuma.acquire();
+    autosCirculando++;
+    if (autosCirculando == 1) {
+      permisoCircular[opuesta].acquire();
+    }
+    permisoCircular[direccion].release();
+    mutexSuma.release();
+
+    //atravesar el puente
+    print(conductor + " esta atravesando el puente en direccion " + direccion + " con " + (autosCirculando-1) + " autos mas");
+
+    mutexSuma.acquire();
+    autosCirculando--;
+    if (autosCirculando == 0) {
+      permisoCircular[opuesta].release();
+    }
+    mutexSuma.release();
+  }
+}
+
+//b
+
+global int autosCirculando = 0;
+global Semaphore[] permisoCircular = new Semaphore[2];
+permisoCircular[0] = new Semaphore(1);
+permisoCircular[1] = new Semaphore(1);
+global Semaphore mutexSuma = new Semaphore(1);
+global Semaphore permisoCantidad = new Semaphore(3);
+
+public void Vehiculo (int direccion, String conductor) {
+  //0: Norte, 1: Sur
+  int opuesta = (direccion + 1) % 2;
+  thread {
+    permisoCircular[direccion].acquire();
+    permisoCantidad.acquire();
+    mutexSuma.acquire();
+    autosCirculando++;
+    if (autosCirculando == 1) {
+      permisoCircular[opuesta].acquire();
+    }
+    permisoCircular[direccion].release();
+    mutexSuma.release();
+
+    //atravesar el puente
+    print(conductor + " esta atravesando el puente en direccion " + direccion + " con " + (autosCirculando-1) + " autos mas");
+
+    permisoCantidad.release();
+    mutexSuma.acquire();
+    autosCirculando--;
+    if (autosCirculando == 0) {
+      permisoCircular[opuesta].release();
+    }
+    mutexSuma.release();
+  }
+}
+
+Vehiculo(0, "Aldo");
+Vehiculo(0, "Beto");
+Vehiculo(0, "Carla");
+Vehiculo(0, "Daniela");
+Vehiculo(0, "Eugenia");
+Vehiculo(1, "Franco");
+Vehiculo(1, "Gabriela");
+Vehiculo(0, "Horacio");
+Vehiculo(1, "Ines");
+Vehiculo(0, "Jemina");
+Vehiculo(1, "Karina");
+Vehiculo(0, "Lien");
+Vehiculo(0, "Marta");
+Vehiculo(1, "Nora");
+Vehiculo(1, "Omar");
+Vehiculo(0, "Qori");
+Vehiculo(1, "Roberta");
+Vehiculo(0, "Santiago");
+Vehiculo(0, "Teresa");
+Vehiculo(0, "Ulises");
+Vehiculo(0, "Victoria");
+Vehiculo(0, "Walter");
+Vehiculo(0, "Ximena");
+Vehiculo(0, "Yvonne");
+Vehiculo(0, "Zaira");
