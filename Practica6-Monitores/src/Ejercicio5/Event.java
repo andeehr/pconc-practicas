@@ -2,23 +2,19 @@ package Ejercicio5;
 
 public class Event {
 
-    private boolean hayPublicacion;
-    private String occurrence;
-
-    public Event() {
-        this.hayPublicacion = false;
-    }
+    private int published = 0;
+    private int subscribed = 0;
 
     public synchronized void publish(String occurrence) {
-        this.occurrence = occurrence;
-        this.hayPublicacion = true;
-        notify();
+        published++;
+        System.out.println(occurrence);
+        notifyAll();
     }
 
     public synchronized void subscribe() throws InterruptedException {
-        while (!hayPublicacion) {
+        subscribed++;
+        while (subscribed > published) {
             wait();
         }
-        System.out.println(occurrence);
     }
 }
