@@ -204,3 +204,38 @@ process ServicioT : {
     }
 }
 
+// 8a
+
+global Channel canal1 = new Channel();
+global Channel canal2 = new Channel();
+global Channel canal3 = new Channel();
+global Channel canal4 = new Channel();
+
+process ProxyP : {
+    while(true) {
+        Calculo calculo = canal3.receive();
+        canal1.send(calculo);
+        int resultado = canal2.receive();
+        canal4.send(resultado);
+    }
+}
+
+//8b
+
+global Channel canal5 = new Channel();
+process ProxyP : {
+
+    repeat(N) canal5.send("token");
+
+    while(true) {
+        Calculo calculo = canal3.receive();
+        canal5.receive();
+
+        thread {
+            canal1.send(calculo);
+            int resultado = canal2.receive();
+            canal4.send(resultado);
+            canal5.send("token");
+        }
+    }
+}
