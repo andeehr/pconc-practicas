@@ -66,3 +66,73 @@ public class Encoder {
         return frames.size() >= p;
     }
 }
+
+//a
+process Agencia : {
+    while(true) {
+        req = agencia.receive();
+        reqService = new Request();
+        reqService.fecha = req.fecha;
+        reqService.chRta = new Channel();
+        bool respuesta = true;
+
+        vuelos.send(reqService);
+        autos.send(reqService);
+        hotel.send(reqService);
+        repeat 3 : respuesta && reqService.chRta.receive();
+        req.channel.send(respuesta);
+    }
+}
+
+//b
+process Agencia : {
+    while(true) {
+        req = agencia.receive();
+        thread(req) {
+            reqService = new Request();
+            reqService.fecha = req.fecha;
+            reqService.chRta = new Channel();
+            bool respuesta = true;
+
+            vuelos.send(reqService);
+            autos.send(reqService);
+            hotel.send(reqService);
+            repeat 3 : respuesta && reqService.chRta.receive();
+            req.channel.send(respuesta);
+        }
+    }
+}
+
+
+//c pendiente
+process Agencia : {
+    while(true) {
+        req = agencia.receive();
+        thread(req) {
+            bool respuesta = true;
+            for (v in vuelos) {
+                v.send(req)
+            }
+            for (a in autos) {
+                a.send(req)
+            }
+            for (h in hotel) {
+                h.send(req)
+            }
+            
+            while(respuesta) {
+                for (v in vuelos) {
+                    respuesta = respuesta && v.receive(req);
+                    if(!respuesta) {
+                        req.channel.send(respuesta);
+                    }
+                }
+            }
+
+            respuesta = respuesta && vuelos.receive();
+            respuesta = respuesta && autos.receive();
+            respuesta = respuesta && hotel.receive();
+            req.channel.send(respuesta);
+        }
+    }
+}
