@@ -118,51 +118,39 @@ process Agencia : {
             bool hayAutos = false;
             bool hayHotel = false;
 
-            // lanzo un thread por cada ws
-            thread {
-                for (v in vuelos) { //envio todos los request a todos los ws de vuelos
+            // lanzo un thread por cada ws de vuelos
+            for (v in vuelos) {
+                thread {
                     reqService = new Request();
                     reqService.fecha = req.fecha;
                     reqService.chRta = new Channel();
                     v.send(reqService);
-                }
-                for (v in vuelos) { //voy guardando las rtas en un canal dedicado para las rtas de vuelos (en otro for para maximizar la conc)
-                    thread { //lanzo un thread por cada rta para no tener que esperar sincrónicamente cada una
-                        bool rta = reqService.chRta.receive();
-                        rtasVuelos.send(rta);
-                    }
+                    bool rta = reqService.chRta.receive();
+                    rtasVuelos.send(rta); //voy guardando las rtas en un canal dedicado para las rtas de vuelos               
                 }
             }
 
-            thread {
-                //idem lógica vuelos
-                for (a in autos) {
+            // idem lógica vuelos
+            for (a in autos) {
+                thread {
                     reqService = new Request();
                     reqService.fecha = req.fecha;
                     reqService.chRta = new Channel();
                     a.send(reqService);
-                }
-                for(a in autos) {
-                    thread {
-                        bool rta = reqService.chRta.receive();
-                        rtasAutos.send(rta);
-                    }
+                    bool rta = reqService.chRta.receive();
+                    rtasAutos.send(rta); 
                 }
             }
 
-            thread {
-                //idem lógica vuelos
-                for (h in hotel) {
+            // idem lógica vuelos
+            for (h in hotel) {
+                thread {
                     reqService = new Request();
                     reqService.fecha = req.fecha;
                     reqService.chRta = new Channel();
                     h.send(reqService);
-                }
-                for(h in hotel) {
-                    thread {
-                        bool rta = reqService.chRta.receive();
-                        rtasHoteles.send(rta);
-                    }
+                    bool rta = reqService.chRta.receive();
+                    rtasHoteles.send(rta); 
                 }
             }
 
@@ -175,8 +163,8 @@ process Agencia : {
                     hayVuelo = hayVuelo || rtasVuelos.receive();
                     iv++;
                 }
-                puedeViajar = puedeViajar && hayVuelo;
                 // si no hay vuelos disponibles, seteo puedeViajar en false
+                puedeViajar = puedeViajar && hayVuelo;
                 // por eso en la próxima iteración, pregunto si también puede viajar
                 // si no puede viajar, no chequeo autos ni hoteles
                 // si conseguí un vuelo, entonces sí chequeo autos y repito la lógica en hoteles
