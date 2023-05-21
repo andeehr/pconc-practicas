@@ -113,10 +113,7 @@ process Agencia : {
             rtasVuelos = new Channel();
             rtasAutos = new Channel();
             rtasHoteles = new Channel();
-            bool puedeViajar = true;
-            bool hayVuelo = false;
-            bool hayAutos = false;
-            bool hayHotel = false;
+            rta = new Channel();
 
             // lanzo un thread por cada ws de vuelos
             for (v in vuelos) {
@@ -154,32 +151,50 @@ process Agencia : {
                 }
             }
 
-            int iv = 0
-            // mientras no haya vuelo y no haya consultado todos los ws voy sacando las rtas
-            // ante la primer respuesta verdadera, seteo la variable hayVuelo en true con la intención de no seguir chequeando vuelos
-            while(!hayVuelo && vuelos.length > iv) {
-                hayVuelo = hayVuelo || rtasVuelos.receive();
-                iv++;
+            //lanzo un thread por tipo de ws, cada uno manda la rta de su tipo a un canal en común
+            thread {
+                int i = 0;
+                bool hayVuelo = false;
+                // mientras no haya consultado todos los ws voy sacando las rtas
+                // ante la primer respuesta verdadera, seteo la variable hayVuelo en true con la intención de no seguir chequeando vuelos
+                while(!hayVuelo && vuelos.length > i) {
+                    hayVuelo = hayVuelo || rtasVuelos.receive();
+                    i++;
+                }
+                rta.send(hayVuelo);
             }
-            // si no hay vuelos disponibles, seteo puedeViajar en false
-            puedeViajar = puedeViajar && hayVuelo;
-            // por eso en la próxima iteración, pregunto si también puede viajar
-            // si no puede viajar, no chequeo autos ni hoteles
-            // si conseguí un vuelo, entonces sí chequeo autos y repito la lógica en hoteles
-            int ia = 0
-            while(!hayAutos && autos.length > ia && puedeViajar) {
-                hayAutos = hayAutos || rtasAutos.receive();
-                ia++;
+            
+            thread {
+                // idem lógica vuelos
+                int i = 0;
+                bool hayAutos = false;
+                while(!hayAutos && autos.length > i) {
+                    hayAutos = hayAutos || rtasAutos.receive();
+                    i++;
+                }
+                rta.send(hayAutos);
             }
-            puedeViajar = puedeViajar && hayAutos;
 
-            int ih = 0
-            while(!hayHotel && hotel.length > ih && puedeViajar) {
-                hayHotel = hayHotel || rtasHoteles.receive();
-                ih++;
+            thread {
+                // idem lógica vuelos
+                int i = 0;
+                bool hayHotel = false;
+                while(!hayHotel && hotel.length > i) {
+                    hayHotel = hayHotel || rtasHoteles.receive();
+                    i++;
+                }
+                rta.send(hayHotel);
             }
-            puedeViajar = puedeViajar && hayHotel;
 
+            bool puedeViajar = true;
+            int i = 3;
+            // en el canal rta tengo las 3 rtas que llegan de forma asincrónica.
+            // esto es para cortar el receive ante la primer rta negativa de algún tipo de ws (autos, hotel o vuelos)
+            while(puedeViajar && i > 0) {
+                puedeViajar = puedeViajar && rta.receive();
+                i--
+            }
+            
             // por último devuelvo la rta
             req.channel.send(puedeViajar);
         }
