@@ -200,3 +200,73 @@ process Agencia : {
         }
     }
 }
+
+public void sendToSupplier(Channel sendChannel, Channel responseChannel, DateTime date) {
+    Request req = new Request();
+    req.fecha = date;
+    req.channel = responseChannel;
+    sendChannel.send(req);
+}
+
+public bool hasSupplier(int length, Channel responses) {
+    int i = 0;
+    bool hasSupplier = false;
+    while(!hasSupplier && length > i) {
+        hasSupplier = hasSupplier || responses.receive();
+        i++;
+    }
+    return hasSupplier;  
+}
+
+//c simplificada
+process Agencia : {
+    while(true) {
+        req = agencia.receive();
+        thread(req) {
+            
+            rtasVuelos = new Channel();
+            rtasAutos = new Channel();
+            rtasHoteles = new Channel();
+            rta = new Channel();
+
+            for (v in vuelos) {
+                sendToSupplier(v, rtasVuelos, req.fecha);       
+            }
+
+            for (a in autos) {
+                sendToSupplier(a, rtasAutos, req.fecha);
+            }
+
+            for (h in hotel) {
+                sendToSupplier(h, rtasHoteles, req.fecha);
+            }
+
+            thread {
+                bool hayVuelo = hasSupplier(vuelos.length, rtasVuelos);
+                rta.send(hayVuelo);
+            }
+            
+            thread {
+                bool hayAutos = hasSupplier(autos.length, rtasAutos);
+                rta.send(hayAutos);
+            }
+
+            thread {
+                bool hayHotel = hasSupplier(hotel.length, rtasHoteles);
+                rta.send(hayHotel);
+            }
+
+            bool puedeViajar = true;
+            int i = 3;
+            // en el canal rta tengo las 3 rtas que llegan de forma asincrónica.
+            // esto es para cortar el receive ante la primer rta negativa de algún tipo de ws (autos, hotel o vuelos)
+            while(puedeViajar && i > 0) {
+                puedeViajar = puedeViajar && rta.receive();
+                i--
+            }
+            
+            // por último devuelvo la rta
+            req.channel.send(puedeViajar);
+        }
+    }
+}
