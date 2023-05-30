@@ -28,7 +28,7 @@ public class Encoder {
         return frames.size() == M;
     }
 
-    private synchronized boolean isEmpty() {
+    private synchronized boolean canGetPack() {
         return frames.size() >= P;
     }
 }
@@ -268,5 +268,137 @@ process Agencia : {
             // por último devuelvo la rta
             req.channel.send(puedeViajar);
         }
+    }
+}
+
+//Ej 3A
+public class Telescopio {
+
+    private int observadores = 0;
+    private bool calibrando = false; // alcanza un bool, porque solo uno puede calibrar concurrentemente
+
+    public synchronized void iniciarObservacion() {
+        while(!puedeObservar()) {
+            wait();
+        }
+        observadores++;
+    }
+
+    public synchronized void finalizarObservacion() {
+        observadores--;
+        notify(); //alcanza un notify, porque no puede haber observadores bloqueados si se inició una observación,
+        // ya que la única forma de bloquearse es cuando se está calibrando, y para eso, observadores tiene que ser 0
+        // En definitiva, este notify, siempre va a despertar a un calibrador
+    }
+
+    public synchronized void iniciarCalibracion() {
+        while(!puedeCalibrar()) {
+            wait();
+        }
+        calibrando = true;
+    }
+
+    public synchronized void finalizarCalibracion() {
+        calibrando = false;
+        notify(); //alcanza un notify, porque da lo mismo a quien despierte, ya que cualquiera podría entrar
+    }
+
+    private bool puedeCalibrar() {
+        return observadores == 0 && !calibrando;
+    }
+
+    private bool puedeObservar() {
+        return !calibrando;
+    }
+}
+
+
+//Ej 3B
+public class Telescopio {
+
+    private int observadores = 0;
+    private bool calibrando = false;
+    private int posicionActual = 1; // inicial
+
+    public synchronized void iniciarObservacion(int posicion) {
+        while(!puedeObservar(posicion)) {
+            wait();
+        }
+        posicionActual = posicion;
+        observadores++;
+    }
+
+    public synchronized void finalizarObservacion() {
+        observadores--;
+        notify();
+        // Sigue alcanzando un notify, ya que mientras observadores > 0 se van a seguir bloqueando por la condición
+        // Solo cuando observadores sea = 0, se podría cambiar de posición el telescopio o iniciar una calibración
+        // y cualquiera de los dos que se despierten (calibrador u observador) va a poder continuar su ejecución
+    }
+
+    public synchronized void iniciarCalibracion() {
+        while(!puedeCalibrar()) {
+            wait();
+        }
+        calibrando = true;
+    }
+
+    public synchronized void finalizarCalibracion() {
+        calibrando = false;
+        notify(); //alcanza un notify, porque da lo mismo a quien despierte, ya que cualquiera podría entrar
+        // si estoy finalizando una calibración, necesariamente observadores = 0, por eso cualquiera podría continuar su ejecución
+    }
+
+    private bool puedeCalibrar() {
+        return observadores == 0 && !calibrando;
+    }
+
+    private bool puedeObservar(int posicion) {
+        return !calibrando && (posicion == posicionActual || observadores == 0);
+    }
+}
+
+//Ej 3C
+public class Telescopio {
+
+    private int observadores = 0;
+    private bool calibrando = false;
+    private int posicionActual = 1;
+    private int calibradoresEsperando = 0;
+
+    public synchronized void iniciarObservacion(int posicion) {
+        while(!puedeObservar(posicion)) {
+            wait();
+        }
+        posicionActual = posicion;
+        observadores++;
+    }
+
+    public synchronized void finalizarObservacion() {
+        observadores--;
+        notifyAll(); // Ahora sí necesito un notifyAll, porque si llegase a despertar a un observador, este podría volver a 
+        // bloquearse ycaer en un deadlock. Entonces necesito despertar al calibrador.
+    }
+
+    public synchronized void iniciarCalibracion() {
+        calibradoresEsperando++;
+        while(!puedeCalibrar()) {
+            wait();
+        }
+        calibradoresEsperando--;
+        calibrando = true;
+    }
+
+    public synchronized void finalizarCalibracion() {
+        calibrando = false;
+        notify(); // idem justificación punto B
+    }
+
+    private bool puedeCalibrar() {
+        return observadores == 0 && !calibrando;
+    }
+
+    private bool puedeObservar(int posicion) {
+        return !calibrando && (posicion == posicionActual || observadores == 0) && (calibradoresEsperando == 0 || posicion == posicionActual);
     }
 }
