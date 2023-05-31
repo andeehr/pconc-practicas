@@ -286,9 +286,12 @@ public class Telescopio {
 
     public synchronized void finalizarObservacion() {
         observadores--;
-        notify(); //alcanza un notify, porque no puede haber observadores bloqueados si se inició una observación,
-        // ya que la única forma de bloquearse es cuando se está calibrando, y para eso, observadores tiene que ser 0
-        // En definitiva, este notify, siempre va a despertar a un calibrador
+        if(observadores == 0) {
+            notify(); //alcanza un notify, porque no puede haber observadores bloqueados si se inició una observación,
+            // ya que la única forma de bloquearse es cuando se está calibrando, y para eso, observadores tiene que ser 0
+            // En definitiva, este notify, siempre va a despertar a un calibrador
+            // El if es para evitar despertar un calibrador y que vuelva a bloquearse
+        }
     }
 
     public synchronized void iniciarCalibracion() {
@@ -300,7 +303,7 @@ public class Telescopio {
 
     public synchronized void finalizarCalibracion() {
         calibrando = false;
-        notify(); //alcanza un notify, porque da lo mismo a quien despierte, ya que cualquiera podría entrar
+        notifyAll(); // Es necesario el notifyAll, porque puede haber múltiples observadores esperando y todos podrían continuar su ejecución
     }
 
     private bool puedeCalibrar() {
@@ -330,10 +333,11 @@ public class Telescopio {
 
     public synchronized void finalizarObservacion() {
         observadores--;
-        notify();
-        // Sigue alcanzando un notify, ya que mientras observadores > 0 se van a seguir bloqueando por la condición
-        // Solo cuando observadores sea = 0, se podría cambiar de posición el telescopio o iniciar una calibración
-        // y cualquiera de los dos que se despierten (calibrador u observador) va a poder continuar su ejecución
+        if(observadores == 0) {
+            notifyAll(); //Ahora es necesario despertar a todos, porque no solo puede haber un calibrador esperando,
+            // sino que puede también haber múltiples observadores intentando querer observar en otra dirección
+            // El if sigue valiendo, porque cualquiera que se despierte si observadores > 0 se va a volver a bloquear
+        }
     }
 
     public synchronized void iniciarCalibracion() {
@@ -345,8 +349,7 @@ public class Telescopio {
 
     public synchronized void finalizarCalibracion() {
         calibrando = false;
-        notify(); //alcanza un notify, porque da lo mismo a quien despierte, ya que cualquiera podría entrar
-        // si estoy finalizando una calibración, necesariamente observadores = 0, por eso cualquiera podría continuar su ejecución
+        notifyAll(); //Idem A
     }
 
     private bool puedeCalibrar() {
@@ -376,8 +379,10 @@ public class Telescopio {
 
     public synchronized void finalizarObservacion() {
         observadores--;
-        notifyAll(); // Ahora sí necesito un notifyAll, porque si llegase a despertar a un observador, este podría volver a 
-        // bloquearse ycaer en un deadlock. Entonces necesito despertar al calibrador.
+        if(observadores == 0) {
+            notifyAll(); //Idem B. Además si llegase a despertar a un observador, este podría volver a 
+        // bloquearse y caer en un deadlock. Entonces necesito despertar al calibrador.
+        }
     }
 
     public synchronized void iniciarCalibracion() {
@@ -391,7 +396,7 @@ public class Telescopio {
 
     public synchronized void finalizarCalibracion() {
         calibrando = false;
-        notify(); // idem justificación punto B
+        notifyAll(); // Idem A
     }
 
     private bool puedeCalibrar() {
