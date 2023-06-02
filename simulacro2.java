@@ -67,6 +67,59 @@ public class Encoder {
     }
 }
 
+//1c
+public class Encoder {
+    private final int K = 10;
+    private final int M = 10;
+    private ArrayList<Frame> frames;
+    private ArrayList<EncodedPack> encodedPacks;
+    private Boolean puedeAlmacenarCuadrosEncodeados;
+    private int ejecucionesGetPack = 0;
+
+    public Encoder() {
+        this.frames = new ArrayList();
+        this.encodedPacks = new ArrayList();
+        this.puedeAlmacenarCuadrosEncodeados = false;
+    }
+
+    public synchronized void putRawFrame(Frame frame) throws InterruptedException {
+        while(isFull()) {
+            wait();
+        }
+        frames.add(frame);
+        notifyAll();
+    }
+
+    public synchronized ArrayList<Frame> getPack(int p) throws InterruptedException {
+        while(!canGetPack(p)) {
+            wait();
+        }
+        ArrayList<Frame> pack = frames.remove(p) // asumimos que saca todos
+        puedeAlmacenarCuadrosEncodeados = true;
+        ejecucionesGetPack++;
+        notifyAll();
+        return pack;
+    }
+
+    public synchronized void putEncodedPack(EncodedPack encodedPack) throws InterruptedException {
+        while(!puedeAlmacenarCuadrosEncodeados) {
+            wait();
+        }
+        encodedPacks.add(encodedPack);
+        puedeAlmacenarCuadrosEncodeados = false;
+        ejecucionesGetPack--;
+        notifyAll();
+    }
+
+    private synchronized boolean isFull() {
+        return frames.size() == M;
+    }
+
+    private synchronized boolean canGetPack(int p) {
+        return frames.size() >= p && ejecucionesGetPack < K;
+    }
+}
+
 //a
 process Agencia : {
     while(true) {
