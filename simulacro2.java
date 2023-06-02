@@ -1,10 +1,10 @@
 // simulacro 
 // 1a
 public class Encoder {
-    private Frame[] buffer;
+    private Frame[] frames;
 
-    public Buffer(int M) {
-        this.buffer = new ArrayList();
+    public Encoder(int M) {
+        this.frames = new ArrayList();
     }
 
     public synchronized void putRawFrame(frame) throws InterruptedException {
@@ -35,10 +35,10 @@ public class Encoder {
 
 //1b
 public class Encoder {
-    private Frame[] buffer;
+    private Frame[] frames;
 
-    public Buffer(int M) {
-        this.buffer = new ArrayList();
+    public Encoder(int M) {
+        this.frames = new ArrayList();
     }
 
     public synchronized void putRawFrame(frame) throws InterruptedException {
@@ -62,7 +62,7 @@ public class Encoder {
         return frames.size() == M;
     }
 
-    private synchronized boolean isEmpty(int p) {
+    private synchronized boolean canGetPack(int p) {
         return frames.size() >= p;
     }
 }
