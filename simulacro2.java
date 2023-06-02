@@ -407,3 +407,129 @@ public class Telescopio {
         return !calibrando && (posicion == posicionActual || observadores == 0) && (calibradoresEsperando == 0 || posicion == posicionActual);
     }
 }
+
+// Ejercicio 4. [Mensajes] Un sistema de monitoreo de equipos IT funciona mediante la ejecución coordinada de múltiples servicios. En los equipos a monitorear se ejecuta un Agente (con un ID único) que una vez por minuto reporta que esta funcionando. Un Proxy por red local actúa de intermediario entre los agentes y un Servidor central, recibiendo los reportes de los Agentes y reenvíandolos al Servidor. El Servidor almacena un log con la actividad reportada (por simplicidad imprimiendo por pantalla los mensajes a medida que los va recibiendo).
+// a) Modele el escenario descrito utilizando intercambio de mensajes por canales (sin utilizar memoria compartida).
+// b) Modifique la solución anterior para que el Servidor central responda cada mensaje con un número aleatorio que debe ser sumado al ID del agente en futuros reportes (i.e., manteniendo el esquema de que el Servidor no se comunica directamente con los agentes, sino que pasa a través del Proxy).
+// c) Extienda la solución anterior para que el Servidor notifique (i.e., imprimiendo por pantalla) cuando no haya recibido comunicación de algún Agente cualquiera en los últimos 2 minutos (aproximadamente).
+
+// Ej 4A
+global Channel agenteToProxy = new Channel();
+global Channel proxyToServer = new Channel();
+
+process Agente(id) : {
+    while(true) {
+        agenteToProxy.send(id);
+        Sleep(60000);
+    }
+}
+
+process Proxy: {
+    while(true) {
+        int id = agenteToProxy.receive();
+        proxyToServer.send(id);
+    }
+}
+
+process Server : {
+    while(true) {
+        int id = proxyToServer.receive();
+        print("Agente " + id + " está funcionando correctamente");
+    }
+}
+
+// 4B
+global Channel agenteToProxy = new Channel();
+global Channel proxyToServer = new Channel();
+global Channel serverToProxy = new Channel();
+global Channel proxyToAgente = new Channel();
+
+process Agente(id) : {
+    int value = id;
+    while(true) {
+        agenteToProxy.send(value);
+        Sleep(60000);
+        int random = proxyToAgente.receive();
+        value = value + random;
+    }
+}
+
+process Proxy: {
+    while(true) {
+        int id = agenteToProxy.receive();
+        proxyToServer.send(id);
+        int random = serverToProxy.receive();
+        proxyToAgente.send(random);
+    }
+}
+
+process Server : {
+    while(true) {
+        int id = proxyToServer.receive();
+        int random = new Random();
+        print("Agente " + id + " está funcionando correctamente");
+        serverToProxy.send(random);
+    }
+}
+
+// 4C
+
+global Channel agenteToProxy = new Channel();
+global Channel proxyToServer = new Channel();
+global Channel serverToProxy = new Channel();
+global Channel proxyToAgente = new Channel();
+
+process Agente(id) : {
+    int value = id;
+    Channel myChannel = new Channel();
+    // creo un canal por cada agente para la comunicación con el servidor
+    // esto es para poder lanzar un thread por cada agente y que cada thread
+    // pueda chequear si no se ha recibido comunicación de un agente en particular
+    while(true) {
+        req = new Request();
+        req.id = id;
+        req.value = value;
+        myChannel.send(req);
+        agenteToProxy.send(myChannel);
+        Sleep(60000);
+        int random = proxyToAgente.receive();
+        value = value + random;
+    }
+}
+
+process Proxy: {
+    while(true) {
+        Channel channel = agenteToProxy.receive();
+        proxyToServer.send(channel);
+        int random = serverToProxy.receive();
+        proxyToAgente.send(random);
+    }
+}
+
+process Server : {
+    Channel serverChannel = new Channel();
+    while(true) {
+        Channel channel = proxyToServer.receive();
+        thread(channel) {
+            req = channel.receive();
+            thread(req) {
+                while(true) {
+                    Sleep(120000);
+                    bool huboComunicacion = serverChannel.receive();
+                    if(!huboComunicacion) {
+                        print("No se ha recibido comunicación del Agente " + req.id);
+                    }
+                    serverChannel.send(false);
+                }
+            }
+            while(true) {
+                int random = new Random();
+                print("Agente " + req.id + " está funcionando correctamente");
+                serverToProxy.send(random);
+                serverChannel.send(true); // el bool representa que hubo comunicación
+                req = channel.receive(); // espero el nuevo aviso del agente
+                serverChannel.receive(); // "robo" el token
+            }
+        }
+    }
+}
