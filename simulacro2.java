@@ -529,33 +529,35 @@ process Server : {
 
 global Channel agenteToProxy = new Channel();
 global Channel proxyToServer = new Channel();
-global Channel serverToProxy = new Channel();
-global Channel proxyToAgente = new Channel();
 
 process Agente(id) : {
     int value = id;
-    Channel myChannel = new Channel();
-    // creo un canal por cada agente para la comunicación con el servidor
-    // esto es para poder lanzar un thread por cada agente y que cada thread
-    // pueda chequear si no se ha recibido comunicación de un agente en particular
+    Channel responseChannel = new Channel();
     while(true) {
         req = new Request();
         req.id = id;
         req.value = value;
-        myChannel.send(req);
-        agenteToProxy.send(myChannel);
+        req.responseChannel = responseChannel;
+        agenteToProxy.send(req);
         Sleep(60000);
-        int random = proxyToAgente.receive();
+        int random = responseChannel.receive();
         value = value + random;
     }
 }
 
 process Proxy: {
     while(true) {
-        Channel channel = agenteToProxy.receive();
-        proxyToServer.send(channel);
-        int random = serverToProxy.receive();
-        proxyToAgente.send(random);
+        Request req = agenteToProxy.receive();
+        thread(req) {
+            Channel proxyServerAgente = new Channel(); // canal req
+            Request r = new Request();
+            r.agenteId = req.id;
+            r.responseServerChannel = new Channel();
+            proxyServerAgente.send(req);
+            proxyToServer.send(proxyServerAgente);
+            int random = r.responseServerChannel.receive();
+            req.responseChannel.send(random);
+        }
     }
 }
 
@@ -564,7 +566,7 @@ process Server : {
     while(true) {
         Channel channel = proxyToServer.receive();
         thread(channel) {
-            req = channel.receive();
+            Request req = channel.receive();
             thread(req) {
                 while(true) {
                     Sleep(120000);
@@ -578,9 +580,74 @@ process Server : {
             while(true) {
                 int random = new Random();
                 print("Agente " + req.id + " está funcionando correctamente");
-                serverToProxy.send(random);
+                req.responseServerChannel.send(random);
                 serverChannel.send(true); // el bool representa que hubo comunicación
                 req = channel.receive(); // espero el nuevo aviso del agente
+                serverChannel.receive(); // "robo" el token
+            }
+        }
+    }
+}
+
+///////////////////////////////
+
+// 4C v2
+
+global Channel agenteToProxy = new Channel();
+global Channel proxyToServer = new Channel();
+
+process Agente(id) : {
+    int value = id;
+    Channel responseChannel = new Channel();
+    while(true) {
+        req = new Request();
+        req.id = id;
+        req.value = value;
+        req.responseChannel = responseChannel;
+        agenteToProxy.send(req);
+        Sleep(60000);
+        int random = responseChannel.receive();
+        value = value + random;
+    }
+}
+
+process Proxy: {
+    while(true) {
+        Request req = agenteToProxy.receive();
+        thread(req) {
+            Request r = new Request();
+            r.responseServerChannel = new Channel();
+            r.requestServerChannel = new Channel();
+            r.requestServerChannel.send(req);
+            proxyToServer.send(r);
+            int random = r.responseServerChannel.receive();
+            req.responseChannel.send(random);
+        }
+    }
+}
+
+process Server : {
+    Channel serverChannel = new Channel();
+    while(true) {
+        Request req = proxyToServer.receive();
+        thread(req) {
+            Request r = req.requestServerChannel.receive();
+            thread(r) {
+                while(true) {
+                    Sleep(120000);
+                    bool huboComunicacion = serverChannel.receive();
+                    if(!huboComunicacion) {
+                        print("No se ha recibido comunicación del Agente " + r.id);
+                    }
+                    serverChannel.send(false);
+                }
+            }
+            while(true) {
+                int random = new Random();
+                print("Agente " + r.id + " está funcionando correctamente");
+                req.responseServerChannel.send(random);
+                serverChannel.send(true); // el bool representa que hubo comunicación
+                r = req.requestServerChannel.receive(); // espero el nuevo aviso del agente
                 serverChannel.receive(); // "robo" el token
             }
         }
