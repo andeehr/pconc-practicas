@@ -508,6 +508,73 @@ Camion("Zaira");
 // prioridad. Es decir, si hay un empleado de limpieza esperando para hacer el mantenimiento,
 // las siguientes personas que lleguen deben esperar a que logre terminar la limpieza.
 
+global Semaphore puedeUsarBano = new Semaphore(8);
+global Semaphore puedeLimpiar = new Semaphore(1);
+global int personas = 0;
+
+thread Persona() {
+
+    mutexSuma.acquire();
+    personas++;
+    if(personas == 1)
+        puedeLimpiar.acquire();
+    mutexSuma.release();
+
+    puedeUsarBano.acquire();
+    //usar biorsi
+    puedeUsarBano.release();
+
+    mutexSuma.acquire();
+    personas--;
+    if(personas == 0)
+        puedeLimpiar.release();
+    mutexSuma.release();
+
+}
+
+thread PersonalLimpieza() {
+    while(true) {
+        puedeLimpiar.acquire();
+        //limpiar
+        puedeLimpiar.release();
+    }
+}
+
+// b
+global Semaphore puedeUsarBano = new Semaphore(8);
+global Semaphore puedeLimpiar = new Semaphore(1);
+global int personas = 0;
+
+thread Persona() {
+
+    mutexP.acquire();
+    mutexSuma.acquire();
+    personas++;
+    if(personas == 1)
+        puedeLimpiar.acquire();
+    mutexSuma.release();
+    mutexP.release();
+
+    puedeUsarBano.acquire();
+    //usar biorsi
+    puedeUsarBano.release();
+
+    mutexSuma.acquire();
+    personas--;
+    if(personas == 0)
+        puedeLimpiar.release();
+    mutexSuma.release();
+
+}
+
+thread PersonalLimpieza() {
+    while(true) {
+        puedeLimpiar.acquire();
+        //limpiar
+        puedeLimpiar.release();
+    }
+}
+
 // Ejercicio 6. Se desea modelar el control de tr´ansito de un puente que conecta dos ciudades.
 // Dado que el puente es muy estrecho se debe evitar que dos autos circulen al mismo tiempo en
 // direcci´on opuesta, dado que quedar´ıan atascados.
